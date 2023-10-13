@@ -1,17 +1,19 @@
-const NUM_REGISTERS: usize = 31;
+pub const NUM_REGISTERS: usize = 31;
 
 pub struct CPU {
-    pub x0: u32,
-    pub x: [u32; NUM_REGISTERS],
-    pub pc: u32,
+    x0: u32,
+    x: [u32; NUM_REGISTERS],
+    pc: u32,
 }
 
-pub fn cpu_init(cpu: &mut CPU) {
-    cpu.x0 = 0;
-    for i in 0..NUM_REGISTERS {
-        cpu.x[i] = 0;
+impl CPU {
+    pub fn new() -> Self {
+        CPU {
+            x0: 0,
+            x: [0; NUM_REGISTERS],
+            pc: 0,
+        }
     }
-    cpu.pc = 0;
 }
 
 pub fn emulate_cycle(instruction: u32, cpu: &mut CPU) -> [u32; NUM_REGISTERS] {
@@ -26,6 +28,8 @@ pub fn emulate_cycle(instruction: u32, cpu: &mut CPU) -> [u32; NUM_REGISTERS] {
     const OPCODE_MASK: u32 = 0x7F;
     let opcode = (instruction & OPCODE_MASK) as u8;
 
+    // -- Decode the opcode that you got --
+    // The opcode is decoded by using a match statement.
     match opcode {
         // LUI (Load Upper Immediate) instruction
         // Implementation: x[rd] = sext(immediate[31:12] << 12)
@@ -35,41 +39,80 @@ pub fn emulate_cycle(instruction: u32, cpu: &mut CPU) -> [u32; NUM_REGISTERS] {
             let extended_imm = (imm as u32) as i32;
             cpu.x[rd] = extended_imm as u32;
         }
+
         // auipc (add upper immediate to pc) instruction
         // Implementation: x[rd] = pc + sext(immediate[31:12] << 12)
         0x17 => {
             let rd = ((instruction >> 7) & 0x1F) as usize;
-            let imm = (instruction & 0xFFFFF000) as i32;
+            let imm = ((instruction >> 20) & 0xFFFF) as i32;
             let extended_imm = (imm as u32) as i32;
             cpu.x[rd] = ((extended_imm as u32) + cpu.pc) as u32;
         }
-        // addi (add immediate) instruction
-        // Implementation x[rd] = x[rs1] + sext(immediate)
+
         0x13 => {
-            let rd = ((instruction >> 7) & 0x1F) as usize;
-            let funct3 = ((instruction >> 12) & 0x00) as usize;
-            let rs1 = ((instruction >> 15) & 0x1F) as usize;
-            let imm = (instruction & 0xFFF0000) as i32;
-            let extended_imm = (imm as u32) as i32;
-            cpu.x[rd] = ((extended_imm as u32) + rs1) as u32;
+            let funct3 = ((instruction >> 12) & 0x7) as usize;
+            match funct3 {
+                // addi (add immediate) instruction
+                // Implementation x[rd] = x[rs1] + sext(immediate)
+                0x0 => {
+                    let rd = ((instruction >> 7) & 0x1F) as usize;
+                    let rs1 = ((instruction >> 15) & 0x1F) as usize;
+                    let imm = ((instruction >> 20) & 0xFFF) as usize;
+                    let extended_imm = (imm as u32) as i32;
+                    cpu.x[rd] = cpu.x[rs1] + (extended_imm as u32);
+                }
 
+                // slti (set less than imediate)
+                // Implementation x[rd] = x[rs1] <s sext(immediate)
+                0x2 => {
+                    let rd = ((instruction >> 7) & 0x1F) as usize;
+                    let rs1 = ((instruction >> 15) & 0x1F) as usize;
+                    let imm = ((instruction >> 20) & 0xFFF) as usize;
+                    let extended_imm = (imm as u32) as i32;
+                    cpu.x[rd] = if (cpu.x[rs1] as i32) < extended_imm {
+                        1
+                    } else {
+                        0
+                    };
+                }
+
+                // sltiu (set less than imediate unsigned)
+                // Implementation x[rd] = x[rs1] <u sext(immediate)
+                0x3 => {
+                    let rd = ((instruction >> 7) & 0x1F) as usize;
+                    let rs1 = ((instruction >> 15) & 0x1F) as usize;
+                    let imm = ((instruction >> 20) & 0xFFF) as usize;
+                    cpu.x[rd] = if cpu.x[rs1] < (imm as u32) { 1 } else { 0 };
+                }
+
+                // xori
+                // Implementation x[rd] = x[rs1] ^ sext(immediate)
+                //0x4 => {
+                //    let rd = ((instruction >> 7) & 0x1F) as usize;
+                //    let rs1 = ((instruction >> 15) & 0x1F) as usize;
+                //    let imm = ((instruction >> 20) & 0xFFF) as usize;
+                //    let extended_imm = (imm as u32) as i32;
+                //    cpu.x[rd] = cpu.x[rs1] ^ extended_imm;
+                //}
+
+                // slli
+                // Implementation x[rd] = x[rs1] << shamt
+                // 0x1 => {
+                //     let rd = ((instruction >> 7) & 0x1F) as usize;
+                //     let rs1 = ((instruction >> 15) & 0x1F) as usize;
+                //     let shamt = ((instruction >> 20) & 0x1F) as usize;
+                // }
+
+                _ => {
+                    println!("ur fucked");
+                }
+            }
         }
-        // sub instruction
-        // Subs the register rs2 from rs1 and stores the result in rd. Arithmetic overflow is ignored and the result is simply the low XLEN bits of the result.
-        0x33 => {
-            let rd = ((instruction >> 7) & 0x1F) as usize;
-            let rs1 = ((instruction >> 15) & 0x1F) as usize;
-            let rs2 = ((instruction >> 20) & 0x1F) as usize;
-            cpu.x[rd] = (cpu.x[rs1] as i32 - cpu.x[rs2] as i32) as u32;
-        }
-
-
 
         _ => {
-            // Handle unknown opcode or other instructions
-            // You might want to add appropriate error handling here.
+            println!("error no opcode matched");
         }
     }
 
-    cpu.registers
+    cpu.x
 }
