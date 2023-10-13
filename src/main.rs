@@ -1,12 +1,12 @@
-use crate::emulator::{ emulate_cycle, CPU };
+use crate::emulator::CPU;
 
 mod emulator;
 
 fn main(){
     let mut cpu = CPU::new();
 
-    let instructions: u32 = 0b00011101100011100101001010010111;
-    let result = emulate_cycle(instructions, &mut cpu);
+    // addi x10, x0, 11; 
+    let instructions: u32 = 0b00000000101100000000010100010011;
 
-    println!("{:?}", result);
+    CPU::emulate_cycle(&mut cpu, instructions);
 }
