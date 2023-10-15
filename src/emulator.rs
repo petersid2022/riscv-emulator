@@ -1,7 +1,6 @@
-pub const NUM_REGISTERS: usize = 31;
+pub const NUM_REGISTERS: usize = 32;
 
 pub struct CPU {
-    x0: u32,
     x: [u32; NUM_REGISTERS],
     pc: u32,
 }
@@ -9,35 +8,34 @@ pub struct CPU {
 impl CPU {
     pub fn new() -> Self {
         CPU {
-            x0: 0,
             x: [0; NUM_REGISTERS],
             pc: 0,
         }
     }
 
+    // Emulation cycle: Fetch -> Decode -> Execute
+    // Every cycle, the method emulate_cycle is called which emulates one cycle of the Risc-V CPU.
+    // During this cycle, the emulator will Fetch, Decode and Execute one opcode.
     pub fn emulate_cycle(&mut self, instruction: u32) {
-        // Emulation cycle: Fetch -> Decode -> Execute
-        // Every cycle, the method emulate_cycle is called which emulates one cycle of the Risc-V CPU.
-        // During this cycle, the emulator will Fetch, Decode and Execute one Opcode.
         let opcode: u8 = CPU::fetch(instruction);
         CPU::decode(self, opcode, instruction);
         let out: [u32; NUM_REGISTERS] = CPU::execute(self);
         println!("{:?}", out);
     }
 
+    // Get opcode from instruction
+    // (The 7 Least Significant Bits of the base ISA instructions)
+    // With the 2 Least Significant bits on all of the 32-bit instructions
+    // in the base ISA having always being set to 11
     fn fetch(instruction: u32) -> u8 {
-        // Get opcode from instruction
-        // (The 7 Least Significant Bits of the base ISA instructions)
-        // With the 2 Least Significant bits on all of the 32-bit instructions
-        // in the base ISA having always being set to 11
         const OPCODE_MASK: u32 = 0x7F;
         let opcode = (instruction & OPCODE_MASK) as u8;
         return opcode;
     }
 
+    // Decode the opcode that you got
+    // The opcode is decoded by using a match statement.
     fn decode(&mut self, opcode: u8, instruction: u32) {
-        // -- Decode the opcode that you got --
-        // The opcode is decoded by using a match statement.
         match opcode {
             // LUI (Load Upper Immediate) instruction
             // Implementation: x[rd] = sext(immediate[31:12] << 12)
@@ -110,15 +108,14 @@ impl CPU {
                     //     let rs1 = ((instruction >> 15) & 0x1F) as usize;
                     //     let shamt = ((instruction >> 20) & 0x1F) as usize;
                     // }
-
                     _ => {
-                        println!("error no opcode matched");
+                        println!("ERROR: No opcode matched");
                     }
                 }
             }
 
             _ => {
-                println!("error no opcode matched");
+                println!("ERROR: No opcode matched");
             }
         }
     }
