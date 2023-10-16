@@ -1,4 +1,4 @@
-pub const NUM_REGISTERS: usize = 32;
+pub const NUM_REGISTERS: usize = 31;
 
 pub struct CPU {
     x: [u32; NUM_REGISTERS],
@@ -35,10 +35,12 @@ impl CPU {
 
     // Decode the opcode that you got
     // The opcode is decoded by using a match statement.
+    // Sidenote: Except for the 5-bit immediates used in CSR instructions,
+    // immediates are always sign-extended.
     fn decode(&mut self, opcode: u8, instruction: u32) {
         match opcode {
-            // LUI (Load Upper Immediate) instruction
-            // Implementation: x[rd] = sext(immediate[31:12] << 12)
+            // LUI (Load Upper Immediate)
+            // x[rd] = sext(immediate[31:12] << 12)
             0x37 => {
                 let rd = ((instruction >> 7) & 0x1F) as usize;
                 let imm = (instruction & 0xFFFFF000) as i32;
@@ -46,8 +48,8 @@ impl CPU {
                 self.x[rd] = extended_imm as u32;
             }
 
-            // auipc (add upper immediate to pc) instruction
-            // Implementation: x[rd] = pc + sext(immediate[31:12] << 12)
+            // auipc (add upper immediate to pc)
+            // x[rd] = pc + sext(immediate[31:12] << 12)
             0x17 => {
                 let rd = ((instruction >> 7) & 0x1F) as usize;
                 let imm = ((instruction >> 20) & 0xFFFF) as i32;
@@ -58,8 +60,8 @@ impl CPU {
             0x13 => {
                 let funct3 = ((instruction >> 12) & 0x7) as usize;
                 match funct3 {
-                    // addi (add immediate) instruction
-                    // Implementation x[rd] = x[rs1] + sext(immediate)
+                    // addi (add immediate)
+                    // x[rd] = x[rs1] + sext(immediate)
                     0x0 => {
                         let rd = ((instruction >> 7) & 0x1F) as usize;
                         let rs1 = ((instruction >> 15) & 0x1F) as usize;
@@ -69,7 +71,7 @@ impl CPU {
                     }
 
                     // slti (set less than imediate)
-                    // Implementation x[rd] = x[rs1] <s sext(immediate)
+                    // x[rd] = x[rs1] <s sext(immediate)
                     0x2 => {
                         let rd = ((instruction >> 7) & 0x1F) as usize;
                         let rs1 = ((instruction >> 15) & 0x1F) as usize;
@@ -83,7 +85,7 @@ impl CPU {
                     }
 
                     // sltiu (set less than imediate unsigned)
-                    // Implementation x[rd] = x[rs1] <u sext(immediate)
+                    // x[rd] = x[rs1] <u sext(immediate)
                     0x3 => {
                         let rd = ((instruction >> 7) & 0x1F) as usize;
                         let rs1 = ((instruction >> 15) & 0x1F) as usize;
@@ -92,22 +94,54 @@ impl CPU {
                     }
 
                     // xori
-                    // Implementation x[rd] = x[rs1] ^ sext(immediate)
-                    //0x4 => {
-                    //    let rd = ((instruction >> 7) & 0x1F) as usize;
-                    //    let rs1 = ((instruction >> 15) & 0x1F) as usize;
-                    //    let imm = ((instruction >> 20) & 0xFFF) as usize;
-                    //    let extended_imm = (imm as u32) as i32;
-                    //    self.x[rd] = self.x[rs1] ^ extended_imm;
-                    //}
+                    // x[rd] = x[rs1] ^ sext(immediate)
+                    0x4 => {
+                        let rd = ((instruction >> 7) & 0x1F) as usize;
+                        let rs1 = ((instruction >> 15) & 0x1F) as usize;
+                        let imm = ((instruction >> 20) & 0xFFF) as usize;
+                        let extended_imm = (imm as u32) as i32;
+                        self.x[rd] = ((self.x[rs1] as i32) ^ extended_imm) as u32;
+                    }
+
+                    // ori
+                    // x[rd] = x[rs1] | sext(immediate)
+                    0x6 => {
+                        let rd = ((instruction >> 7) & 0x1F) as usize;
+                        let rs1 = ((instruction >> 15) & 0x1F) as usize;
+                        let imm = ((instruction >> 20) & 0xFFF) as usize;
+                        let extended_imm = (imm as u32) as i32;
+                        self.x[rd] = ((self.x[rs1] as i32) | extended_imm) as u32;
+                    }
+
+                    // andi
+                    // x[rd] = x[rs1] & sext(immediate)
+                    0x7 => {
+                        let rd = ((instruction >> 7) & 0x1F) as usize;
+                        let rs1 = ((instruction >> 15) & 0x1F) as usize;
+                        let imm = ((instruction >> 20) & 0xFFF) as usize;
+                        let extended_imm = (imm as u32) as i32;
+                        self.x[rd] = ((self.x[rs1] as i32) & extended_imm) as u32;
+                    }
 
                     // slli
-                    // Implementation x[rd] = x[rs1] << shamt
-                    // 0x1 => {
-                    //     let rd = ((instruction >> 7) & 0x1F) as usize;
-                    //     let rs1 = ((instruction >> 15) & 0x1F) as usize;
-                    //     let shamt = ((instruction >> 20) & 0x1F) as usize;
-                    // }
+                    // x[rd] = x[rs1] << shamt
+                    0x1 => {
+                        let rd = ((instruction >> 7) & 0x1F) as usize;
+                        let rs1 = ((instruction >> 15) & 0x1F) as usize;
+                        let shamt = ((instruction >> 20) & 0x1F) as usize;
+                        self.x[rd] = self.x[rs1] << shamt;
+                    }
+
+                    // srli (logical right shift on the value in register rs1 by the shift 
+                    // amount held in the lower 5 bits of the immediate (shamt))
+                    // x[rd] = x[rs1] >>u shamt
+                    0x5 => {
+                        let rd = ((instruction >> 7) & 0x1F) as usize;
+                        let rs1 = ((instruction >> 15) & 0x1F) as usize;
+                        let shamt = ((instruction >> 20) & 0x1F) as usize;
+                        self.x[rd] = self.x[rs1] >> shamt;
+                    }
+
                     _ => {
                         println!("ERROR: No opcode matched");
                     }
