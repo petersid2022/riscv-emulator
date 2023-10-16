@@ -1,8 +1,8 @@
-//use crate::emulator::CPU;
-use std::fs::File;
-use std::io::BufReader;
-use std::io::Read;
+use crate::emulator::CPU;
+use goblin::elf::{ Elf, ProgramHeader };
 use std::env;
+use std::fs;
+use std::process;
 
 mod emulator;
 
@@ -15,22 +15,26 @@ fn help() {
     println!("{}", help);
 }
 
-fn main() {
-    //let mut cpu = CPU::new();
+fn main() -> Result<(), Box<dyn std::error::Error>> {
+    let mut cpu = CPU::new();
     let args: Vec<String> = env::args().collect();
 
     if args.len() != 2 {
         help();
-        return;
+        process::exit(0);
     }
 
     let dir = &args[1];
-    let my_buf = BufReader::new(File::open(dir).unwrap());
+    let bytes = fs::read(&dir)?;
+    let binary = Elf::parse(&bytes)
 
-    for byte_or_error in my_buf.bytes() {
-        let byte = byte_or_error.unwrap();
-        print!("{:b}", byte);
-    }
+    //for (i, &byte) in bytes.iter().enumerate() {
+    //    println!("{:08b}", byte);
+    //    if (i + 1) % 4 == 0 {
+    //        println!();
+    //    }
+    //}
 
-    //CPU::emulate_cycle(&mut cpu, bytes[0]);
+    //CPU::emulate_cycle(&mut cpu, out);
+    Ok(())
 }
