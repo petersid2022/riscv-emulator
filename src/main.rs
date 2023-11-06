@@ -1,62 +1,49 @@
-//use crate::emulator::CPU;
-use goblin::elf::Elf;
-use goblin::error::Result;
+use crate::emulator::CPU;
+use object::{Object, ObjectSection};
 use std::env;
+use std::error::Error;
 use std::fs;
 use std::process;
 
 mod emulator;
 
-fn help() {
-    let help = "Usage:
-    your_program_name <path_to_riscv_binary>
-    
-    Description:
-    Specify the path to a RISC-V (RV32I) binary that you wish to emulate.";
-    println!("{}", help);
-    process::exit(0);
-}
-
-pub fn parse(buffer: &[u8]) -> Result<()> {
-    let elf = Elf::parse(&buffer)?;
-
-    for ph in elf.program_headers {
-        if ph.p_type == goblin::elf::program_header::PT_LOAD {
-            if ph.p_filesz > 0 {
-                let start = ph.p_offset as usize;
-                let end = (ph.p_offset + ph.p_filesz) as usize;
-
-                let bytes = buffer
-                    .get(start..end)
-                    .ok_or_else(|| goblin::error::Error::Malformed("Invalid range".to_string()))?;
-
-                for &byte in bytes {
-                    println!("{:#010b}", byte);
+fn disassembly(dir: &str) -> Result<(), Box<dyn Error>> {
+    let bin_data = fs::read(dir)?;
+    let obj_file = object::File::parse(&*bin_data)?;
+    if let Some(section) = obj_file.section_by_name(".text") {
+        if let Ok(section_data) = section.data() {
+            for i in (0..section_data.len()).step_by(4) {
+                if i + 4 <= section_data.len() {
+                    let instruction = &section_data[i..i + 4];
+                    print!(
+                        "{:#034b}\n",
+                        u32::from_le_bytes([
+                            instruction[0],
+                            instruction[1],
+                            instruction[2],
+                            instruction[3]
+                        ])
+                    );
                 }
             }
+        } else {
+            eprintln!("Failed to get section data");
         }
+    } else {
+        eprintln!("section not available");
     }
-    Ok(())
-}
-
-fn read_directory(dir: &str) -> Result<()> {
-    let buffer = fs::read(&dir)?;
-    parse(&buffer)?;
     Ok(())
 }
 
 fn main() {
-    //let mut cpu = CPU::new();
+    let mut cpu = CPU::new();
     let args: Vec<String> = env::args().collect();
     if args.len() != 2 {
-        help();
-    }
-
-    let dir = &args[1];
-    if let Err(err) = read_directory(&dir) {
-        eprintln!("Error reading directory: {}", err);
+        println!("Please specify the path to the RISC-V (RV32I) binary that you wish to emulate");
         process::exit(0);
     }
+    let dir = &args[1];
+    let _ = disassembly(dir);
 
     //CPU::emulate_cycle(&mut cpu, out);
 }
