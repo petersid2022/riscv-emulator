@@ -132,7 +132,7 @@ impl CPU {
                         self.x[rd] = self.x[rs1] << shamt;
                     }
 
-                    // srli (logical right shift on the value in register rs1 by the shift 
+                    // srli (logical right shift on the value in register rs1 by the shift
                     // amount held in the lower 5 bits of the immediate (shamt))
                     // x[rd] = x[rs1] >>u shamt
                     0x5 => {
