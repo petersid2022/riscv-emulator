@@ -1,15 +1,19 @@
-pub const NUM_REGISTERS: usize = 31;
+use crate::bus::BUS;
+
+pub const NUM_REGISTERS: usize = 32;
 
 pub struct CPU {
     x: [u32; NUM_REGISTERS],
     pc: u32,
+    bus: BUS,
 }
 
 impl CPU {
-    pub fn new() -> Self {
+    pub fn new(bus: BUS) -> Self {
         CPU {
             x: [0; NUM_REGISTERS],
             pc: 0,
+            bus,
         }
     }
 
